@@ -18,6 +18,8 @@ publish:
   provider: github
   owner: zhanweipan
   repo: dsh-launcher
+  # 默认会创建草稿 Release，导致自动更新无法解析 latest；必须发布为正式 Release
+  draft: false
 nsis:
   oneClick: false
   perMachine: false
