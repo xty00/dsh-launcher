@@ -9,7 +9,17 @@ import type { LogHub } from './core/logger'
 import type { LaunchSpec, RuntimeManager } from './core/runtimeManager'
 import { detectSystemDeployment } from './core/systemDetector'
 import { patchSettings } from './core/settings'
-import type { AppState, LogLine, Settings, SetupProgress, SystemDeployment } from '../shared/types'
+import { listNodeVersions, listDshVersions } from './core/versionManager'
+import { checkForUpdates, downloadAndInstallUpdate } from './core/updater'
+import type {
+  AppState,
+  LogLine,
+  NodeVersionInfo,
+  Settings,
+  SetupProgress,
+  SystemDeployment,
+  UpdateCheckResult
+} from '../shared/types'
 
 export interface IpcDeps {
   dirs: Dirs
@@ -122,9 +132,72 @@ export function registerIpc(deps: IpcDeps): void {
   ipcMain.handle('settings:update', async (_e, patch: Partial<Settings>): Promise<Settings> => {
     const next = patchSettings(getSettings(), patch)
     await saveSettings(next)
+    if ('autoLaunch' in patch) {
+      app.setLoginItemSettings({ openAtLogin: next.autoLaunch, args: ['--hidden'] })
+      log.info('settings', `开机自启已${next.autoLaunch ? '开启' : '关闭'}`)
+    }
     log.info('settings', `设置已更新: ${JSON.stringify(patch)}`)
     return next
   })
+
+  // ---------- 版本管理 ----------
+
+  ipcMain.handle('versions:listNode', async (): Promise<NodeVersionInfo[]> => listNodeVersions())
+
+  ipcMain.handle('versions:listDsh', async () => {
+    const s = getSettings()
+    return listDshVersions(s.registry)
+  })
+
+  ipcMain.handle('versions:switchNode', async (_e, version: string): Promise<{ ok: boolean; version?: string; error?: string }> => {
+    const s = getSettings()
+    if (s.mode !== 'managed') return { ok: false, error: '接管模式下请通过系统自身管理 Node.js 版本' }
+    if (!/^\d+\.\d+\.\d+$/.test(version)) return { ok: false, error: '版本号格式无效' }
+    try {
+      if (runtime.getState().status === 'running' || runtime.getState().status === 'starting') {
+        log.info('versions', '切换版本前先停止 DSH')
+        await runtime.stop()
+      }
+      await ensureNode(envOf(s), version, (phase, percent, message) =>
+        broadcast('setup:progress', { step: 'node', phase, percent, message } satisfies SetupProgress)
+      )
+      await saveSettings({ ...s, nodeVersion: version, installedNodeVersion: version })
+      log.info('versions', `Node.js 已切换至 v${version}`)
+      return { ok: true, version }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      log.error('versions', `Node.js 切换失败: ${msg}`)
+      return { ok: false, error: msg }
+    }
+  })
+
+  ipcMain.handle('versions:switchDsh', async (_e, version: string): Promise<{ ok: boolean; version?: string; error?: string }> => {
+    const s = getSettings()
+    if (s.mode !== 'managed') return { ok: false, error: '接管模式下请通过系统自身管理 DSH 版本' }
+    try {
+      if (runtime.getState().status === 'running' || runtime.getState().status === 'starting') {
+        log.info('versions', '切换版本前先停止 DSH')
+        await runtime.stop()
+      }
+      await ensureDsh(envOf(s), version, (phase, percent, message) =>
+        broadcast('setup:progress', { step: 'dsh', phase, percent, message } satisfies SetupProgress)
+      )
+      const v = await dshVersion(envOf(s))
+      await saveSettings({ ...s, dshVersion: version, installedDshVersion: v ?? version })
+      log.info('versions', `DSH 已切换至 v${v ?? version}`)
+      return { ok: true, version: v ?? version }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      log.error('versions', `DSH 切换失败: ${msg}`)
+      return { ok: false, error: msg }
+    }
+  })
+
+  // ---------- 应用自动更新 ----------
+
+  ipcMain.handle('updates:check', async (): Promise<UpdateCheckResult> => checkForUpdates())
+
+  ipcMain.handle('updates:install', async () => downloadAndInstallUpdate())
 
   ipcMain.handle('logs:snapshot', async (): Promise<LogLine[]> => log.snapshot())
 

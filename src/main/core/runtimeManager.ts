@@ -10,7 +10,8 @@ import type { RuntimeState } from '../../shared/types'
 export interface RuntimeEnv {
   dirs: Dirs
   log: LogHub
-  nodeVersion: string
+  /** 当前生效的 Node 版本（自管模式从 settings 读取，切换版本后无需重启应用） */
+  getNodeVersion: () => string
 }
 
 const START_TIMEOUT_MS = 60_000
@@ -64,7 +65,7 @@ export class RuntimeManager {
     if (port < 1 || port > 65535) return { ok: false, error: '端口无效（1-65535）' }
 
     const spec = launch ?? {
-      nodePath: nodeExe(this.env.dirs, this.env.nodeVersion),
+      nodePath: nodeExe(this.env.dirs, this.env.getNodeVersion()),
       entry: dshEntry(this.env.dirs)
     }
     if (!fs.existsSync(spec.entry) || !fs.existsSync(spec.nodePath)) {

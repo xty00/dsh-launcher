@@ -1,6 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
-import type { AppState, DshmApi, LogLine, RuntimeState, Settings, SetupProgress, SystemDeployment } from '../shared/types'
+import type {
+  AppState,
+  DshmApi,
+  DshVersionInfo,
+  LogLine,
+  NodeVersionInfo,
+  RuntimeState,
+  Settings,
+  SetupProgress,
+  SystemDeployment,
+  UpdateCheckResult
+} from '../shared/types'
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
   const listener = (_e: IpcRendererEvent, payload: T): void => cb(payload)
@@ -24,6 +35,14 @@ const api: DshmApi = {
   exportLogs: () => ipcRenderer.invoke('logs:export') as Promise<{ ok: boolean; path?: string; error?: string }>,
   detectSystem: () => ipcRenderer.invoke('system:detect') as Promise<SystemDeployment>,
   adoptSystem: () => ipcRenderer.invoke('system:adopt') as Promise<{ ok: boolean; error?: string }>,
+  listNodeVersions: () => ipcRenderer.invoke('versions:listNode') as Promise<NodeVersionInfo[]>,
+  listDshVersions: () => ipcRenderer.invoke('versions:listDsh') as Promise<DshVersionInfo>,
+  switchNode: (version: string) =>
+    ipcRenderer.invoke('versions:switchNode', version) as Promise<{ ok: boolean; version?: string; error?: string }>,
+  switchDsh: (version: string) =>
+    ipcRenderer.invoke('versions:switchDsh', version) as Promise<{ ok: boolean; version?: string; error?: string }>,
+  checkForUpdates: () => ipcRenderer.invoke('updates:check') as Promise<UpdateCheckResult>,
+  installUpdate: () => ipcRenderer.invoke('updates:install') as Promise<{ ok: boolean; error?: string }>,
   logsSnapshot: () => ipcRenderer.invoke('logs:snapshot') as Promise<LogLine[]>,
   onProgress: (cb) => subscribe<SetupProgress>('setup:progress', cb),
   onRuntimeStatus: (cb) => subscribe<RuntimeState>('runtime:status', cb),

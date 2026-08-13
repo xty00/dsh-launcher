@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   port: 3080,
   registry: 'https://registry.npmjs.org/',
   autoOpenBrowser: true,
+  autoLaunch: false,
   mode: 'managed'
 }
 
@@ -39,5 +40,6 @@ export function patchSettings(current: Settings, patch: Partial<Settings>): Sett
   if (!/^\d+\.\d+\.\d+$/.test(next.nodeVersion)) next.nodeVersion = DEFAULT_SETTINGS.nodeVersion
   if (!next.dshVersion) next.dshVersion = 'latest'
   if (next.mode !== 'managed' && next.mode !== 'system') next.mode = 'managed'
+  next.autoLaunch = Boolean(next.autoLaunch)
   return next
 }

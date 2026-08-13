@@ -12,7 +12,8 @@ import {
   Typography,
   App as AntApp
 } from 'antd'
-import { SaveOutlined } from '@ant-design/icons'
+import { SaveOutlined, SyncOutlined } from '@ant-design/icons'
+import { useState } from 'react'
 import { useStore } from '../store'
 import type { Settings } from '../../../shared/types'
 
@@ -25,6 +26,25 @@ export default function SettingsPage(): JSX.Element {
   const { state, refresh } = useStore()
   const { message } = AntApp.useApp()
   const [form] = Form.useForm<Settings>()
+  const [updateBusy, setUpdateBusy] = useState(false)
+
+  const checkUpdate = async (): Promise<void> => {
+    setUpdateBusy(true)
+    try {
+      const res = await window.dshm.checkForUpdates()
+      if (res.ok && res.available && res.version) {
+        message.info(`发现新版本 v${res.version}，正在后台下载...`)
+        const dl = await window.dshm.installUpdate()
+        if (!dl.ok && dl.error) message.error(dl.error)
+      } else if (res.error) {
+        message.warning(res.error)
+      } else {
+        message.success('当前已是最新版本')
+      }
+    } finally {
+      setUpdateBusy(false)
+    }
+  }
 
   if (!state) return <Card loading />
 
@@ -105,6 +125,9 @@ export default function SettingsPage(): JSX.Element {
           <Form.Item label="启动成功后自动打开浏览器" name="autoOpenBrowser" valuePropName="checked">
             <Switch />
           </Form.Item>
+          <Form.Item label="开机自启" name="autoLaunch" valuePropName="checked" extra="开启后随系统启动（可配合设置：启动后自动打开 DSH）。">
+            <Switch />
+          </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
               保存设置
@@ -112,6 +135,15 @@ export default function SettingsPage(): JSX.Element {
           </Form.Item>
         </Form>
         <Typography.Text type="secondary">数据目录：程序会自动把所有运行时数据放在用户目录下，卸载后不留残留。</Typography.Text>
+        <div style={{ marginTop: 24 }}>
+          <Typography.Title level={5}>应用更新</Typography.Title>
+          <Button icon={<SyncOutlined />} loading={updateBusy} onClick={() => void checkUpdate()}>
+            检查更新
+          </Button>
+          <Typography.Text type="secondary" style={{ marginLeft: 12 }}>
+            通过 GitHub Releases 发布新版本后，可在此一键升级应用本身。
+          </Typography.Text>
+        </div>
       </Card>
     </div>
   )

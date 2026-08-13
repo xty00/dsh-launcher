@@ -5,7 +5,8 @@ import {
   RocketOutlined,
   FileTextOutlined,
   SettingOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  DeploymentUnitOutlined
 } from '@ant-design/icons'
 import type { ReactNode } from 'react'
 import { StoreProvider } from './store'
@@ -13,13 +14,15 @@ import HomePage from './pages/HomePage'
 import SetupPage from './pages/SetupPage'
 import LogsPage from './pages/LogsPage'
 import SettingsPage from './pages/SettingsPage'
+import VersionsPage from './pages/VersionsPage'
 import AboutPage from './pages/AboutPage'
 
-type PageKey = 'home' | 'setup' | 'logs' | 'settings' | 'about'
+type PageKey = 'home' | 'setup' | 'versions' | 'logs' | 'settings' | 'about'
 
 const PAGES: { key: PageKey; label: string; icon: ReactNode; el: ReactNode }[] = [
   { key: 'home', label: '首页', icon: <HomeOutlined />, el: <HomePage /> },
   { key: 'setup', label: '部署', icon: <RocketOutlined />, el: <SetupPage /> },
+  { key: 'versions', label: '版本', icon: <DeploymentUnitOutlined />, el: <VersionsPage /> },
   { key: 'logs', label: '日志', icon: <FileTextOutlined />, el: <LogsPage /> },
   { key: 'settings', label: '设置', icon: <SettingOutlined />, el: <SettingsPage /> },
   { key: 'about', label: '关于', icon: <InfoCircleOutlined />, el: <AboutPage /> }

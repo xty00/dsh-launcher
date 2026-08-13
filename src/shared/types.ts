@@ -13,6 +13,8 @@ export interface Settings {
   registry: string
   /** 启动成功后自动打开浏览器 */
   autoOpenBrowser: boolean
+  /** 开机自启 */
+  autoLaunch: boolean
   /** 已安装的 Node.js 版本（部署成功后写入） */
   installedNodeVersion?: string
   /** 已安装的 DSH 版本（部署成功后写入） */
@@ -56,6 +58,24 @@ export interface LogLine {
   text: string
 }
 
+export interface NodeVersionInfo {
+  version: string
+  lts: boolean
+  date: string
+}
+
+export interface DshVersionInfo {
+  latest: string
+  versions: string[]
+}
+
+export interface UpdateCheckResult {
+  ok: boolean
+  available: boolean
+  version?: string
+  error?: string
+}
+
 export interface SystemDeployment {
   /** 系统是否同时存在 Node.js 与 DSH */
   detected: boolean
@@ -96,6 +116,12 @@ export interface DshmApi {
   exportLogs: () => Promise<{ ok: boolean; path?: string; error?: string }>
   detectSystem: () => Promise<SystemDeployment>
   adoptSystem: () => Promise<{ ok: boolean; error?: string }>
+  listNodeVersions: () => Promise<NodeVersionInfo[]>
+  listDshVersions: () => Promise<DshVersionInfo>
+  switchNode: (version: string) => Promise<{ ok: boolean; version?: string; error?: string }>
+  switchDsh: (version: string) => Promise<{ ok: boolean; version?: string; error?: string }>
+  checkForUpdates: () => Promise<UpdateCheckResult>
+  installUpdate: () => Promise<{ ok: boolean; error?: string }>
   logsSnapshot: () => Promise<LogLine[]>
   onProgress: (cb: (p: SetupProgress) => void) => () => void
   onRuntimeStatus: (cb: (s: RuntimeState) => void) => () => void

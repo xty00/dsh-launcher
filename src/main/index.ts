@@ -4,6 +4,7 @@ import { loadSettings, saveSettings } from './core/settings'
 import { LogHub } from './core/logger'
 import { RuntimeManager } from './core/runtimeManager'
 import { registerIpc } from './ipc'
+import { initUpdater } from './core/updater'
 import { createWindow, getMainWindow } from './window'
 import type { Settings } from '../shared/types'
 
@@ -28,7 +29,8 @@ if (!gotLock) {
     const log = new LogHub(dirs.logsDir)
     log.info('app', `DSH Manager 启动 v${app.getVersion()}`)
 
-    const runtime = new RuntimeManager({ dirs, log, nodeVersion: settings.nodeVersion }, (s) => {
+    initUpdater()
+    const runtime = new RuntimeManager({ dirs, log, getNodeVersion: () => settings.nodeVersion }, (s) => {
       for (const win of BrowserWindow.getAllWindows()) {
         win.webContents.send('runtime:status', s)
       }
