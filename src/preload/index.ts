@@ -4,6 +4,7 @@ import type {
   AppState,
   DshmApi,
   DshVersionInfo,
+  Instance,
   LogLine,
   NodeVersionInfo,
   RuntimeState,
@@ -43,6 +44,17 @@ const api: DshmApi = {
     ipcRenderer.invoke('versions:switchDsh', version) as Promise<{ ok: boolean; version?: string; error?: string }>,
   checkForUpdates: () => ipcRenderer.invoke('updates:check') as Promise<UpdateCheckResult>,
   installUpdate: () => ipcRenderer.invoke('updates:install') as Promise<{ ok: boolean; error?: string }>,
+  instancesList: () => ipcRenderer.invoke('instances:list') as Promise<Instance[]>,
+  instancesAdd: (name: string, host: string, port: number) =>
+    ipcRenderer.invoke('instances:add', name, host, port) as Promise<{ ok: boolean; id?: string; error?: string }>,
+  instancesUpdate: (id: string, patch: Partial<Instance>) =>
+    ipcRenderer.invoke('instances:update', id, patch) as Promise<{ ok: boolean; error?: string }>,
+  instancesRemove: (id: string) =>
+    ipcRenderer.invoke('instances:remove', id) as Promise<{ ok: boolean; error?: string }>,
+  instancesActivate: (id: string) =>
+    ipcRenderer.invoke('instances:activate', id) as Promise<{ ok: boolean; error?: string }>,
+  openPath: (target: 'dsh-home' | 'logs') =>
+    ipcRenderer.invoke('shell:openPath', target) as Promise<{ ok: boolean; error?: string }>,
   logsSnapshot: () => ipcRenderer.invoke('logs:snapshot') as Promise<LogLine[]>,
   onProgress: (cb) => subscribe<SetupProgress>('setup:progress', cb),
   onRuntimeStatus: (cb) => subscribe<RuntimeState>('runtime:status', cb),

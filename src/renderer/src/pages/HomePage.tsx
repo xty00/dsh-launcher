@@ -31,6 +31,7 @@ export default function HomePage(): JSX.Element {
   const { runtime, node, dsh, settings, setupDone, system } = state
   const meta = STATUS_META[runtime.status] ?? STATUS_META.stopped
   const isSystemMode = settings.mode === 'system'
+  const activeInstance = settings.instances.find((i) => i.id === settings.activeInstanceId) ?? settings.instances[0]
 
   const handleStart = async (): Promise<void> => {
     setBusy(true)
@@ -202,6 +203,11 @@ export default function HomePage(): JSX.Element {
         {runtime.lastError && (
           <div style={{ marginTop: 8 }}>
             <Tag color="red">{runtime.lastError}</Tag>
+          </div>
+        )}
+        {activeInstance && (
+          <div style={{ marginTop: 8 }}>
+            <Tag color="geekblue">当前实例：{activeInstance.name}（{activeInstance.host}:{activeInstance.port}）</Tag>
           </div>
         )}
       </Card>

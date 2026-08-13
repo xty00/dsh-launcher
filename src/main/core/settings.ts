@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as path from 'node:path'
-import type { Settings } from '../../shared/types'
+import type { Instance, Settings } from '../../shared/types'
 
 export const DEFAULT_SETTINGS: Settings = {
   nodeVersion: '22.14.0',
@@ -11,17 +11,48 @@ export const DEFAULT_SETTINGS: Settings = {
   registry: 'https://registry.npmjs.org/',
   autoOpenBrowser: true,
   autoLaunch: false,
-  mode: 'managed'
+  addDshToPath: false,
+  mode: 'managed',
+  instances: [],
+  activeInstanceId: ''
 }
 
 export function loadSettings(file: string): Settings {
+  let parsed: Partial<Settings> = {}
   try {
-    const raw = fs.readFileSync(file, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<Settings>
-    return { ...DEFAULT_SETTINGS, ...parsed }
+    parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as Partial<Settings>
   } catch {
-    return { ...DEFAULT_SETTINGS }
+    /* 无配置或损坏，用默认值 */
   }
+  const merged: Settings = { ...DEFAULT_SETTINGS, ...parsed }
+  // 旧版本数据迁移：没有实例时，用顶层 host/port 生成默认实例
+  if (!Array.isArray(merged.instances) || merged.instances.length === 0) {
+    merged.instances = [{ id: 'default', name: '默认实例', host: merged.host, port: merged.port }]
+    merged.activeInstanceId = 'default'
+  }
+  if (!merged.instances.some((i) => i.id === merged.activeInstanceId)) {
+    merged.activeInstanceId = merged.instances[0].id
+  }
+  // 顶层 host/port 与活动实例保持同步（兼容旧 UI 读取）
+  const active = getActiveInstance(merged)
+  merged.host = active.host
+  merged.port = active.port
+  return merged
+}
+
+/** 取活动实例；找不到时回退第一个并修正 activeInstanceId */
+export function getActiveInstance(s: Settings): Instance {
+  const found = s.instances.find((i) => i.id === s.activeInstanceId)
+  if (found) return found
+  const first = s.instances[0]
+  if (first) {
+    s.activeInstanceId = first.id
+    return first
+  }
+  const fallback: Instance = { id: 'default', name: '默认实例', host: s.host, port: s.port }
+  s.instances = [fallback]
+  s.activeInstanceId = fallback.id
+  return fallback
 }
 
 export async function saveSettings(file: string, settings: Settings): Promise<void> {
@@ -41,5 +72,12 @@ export function patchSettings(current: Settings, patch: Partial<Settings>): Sett
   if (!next.dshVersion) next.dshVersion = 'latest'
   if (next.mode !== 'managed' && next.mode !== 'system') next.mode = 'managed'
   next.autoLaunch = Boolean(next.autoLaunch)
+  next.addDshToPath = Boolean(next.addDshToPath)
+  // 顶层 port/host 修改时同步到活动实例
+  if (patch.port !== undefined || patch.host !== undefined) {
+    const active = getActiveInstance(next)
+    active.port = next.port
+    active.host = next.host
+  }
   return next
 }

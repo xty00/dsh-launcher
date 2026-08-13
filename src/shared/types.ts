@@ -1,5 +1,13 @@
 export type DeploymentMode = 'managed' | 'system'
 
+/** 一个 DSH 实例（不同端口/主机/名称），同一时刻只运行一个（切换制） */
+export interface Instance {
+  id: string
+  name: string
+  host: string
+  port: number
+}
+
 export interface Settings {
   /** 要部署的 Node.js 版本（如 22.14.0） */
   nodeVersion: string
@@ -15,6 +23,12 @@ export interface Settings {
   autoOpenBrowser: boolean
   /** 开机自启 */
   autoLaunch: boolean
+  /** 把自管 dsh 命令暴露到用户 PATH（终端里可直接敲 dsh） */
+  addDshToPath: boolean
+  /** 实例列表 */
+  instances: Instance[]
+  /** 当前活动实例 id */
+  activeInstanceId: string
   /** 已安装的 Node.js 版本（部署成功后写入） */
   installedNodeVersion?: string
   /** 已安装的 DSH 版本（部署成功后写入） */
@@ -122,6 +136,12 @@ export interface DshmApi {
   switchDsh: (version: string) => Promise<{ ok: boolean; version?: string; error?: string }>
   checkForUpdates: () => Promise<UpdateCheckResult>
   installUpdate: () => Promise<{ ok: boolean; error?: string }>
+  instancesList: () => Promise<Instance[]>
+  instancesAdd: (name: string, host: string, port: number) => Promise<{ ok: boolean; id?: string; error?: string }>
+  instancesUpdate: (id: string, patch: Partial<Instance>) => Promise<{ ok: boolean; error?: string }>
+  instancesRemove: (id: string) => Promise<{ ok: boolean; error?: string }>
+  instancesActivate: (id: string) => Promise<{ ok: boolean; error?: string }>
+  openPath: (target: 'dsh-home' | 'logs') => Promise<{ ok: boolean; error?: string }>
   logsSnapshot: () => Promise<LogLine[]>
   onProgress: (cb: (p: SetupProgress) => void) => () => void
   onRuntimeStatus: (cb: (s: RuntimeState) => void) => () => void

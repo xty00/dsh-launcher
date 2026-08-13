@@ -1,6 +1,8 @@
 import { ipcMain, shell, dialog, BrowserWindow, app } from 'electron'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { ensureNode, runNodeVersion } from './core/nodeInstaller'
 import { ensureDsh, dshVersion } from './core/dshInstaller'
 import { dshEntry } from './core/paths'
@@ -8,11 +10,14 @@ import type { Dirs } from './core/paths'
 import type { LogHub } from './core/logger'
 import type { LaunchSpec, RuntimeManager } from './core/runtimeManager'
 import { detectSystemDeployment } from './core/systemDetector'
-import { patchSettings } from './core/settings'
+import { patchSettings, getActiveInstance } from './core/settings'
+import { addDirsToUserPath, removeDirsFromUserPath } from './core/pathManager'
+import { nodeDistDir } from './core/paths'
 import { listNodeVersions, listDshVersions } from './core/versionManager'
 import { checkForUpdates, downloadAndInstallUpdate } from './core/updater'
 import type {
   AppState,
+  Instance,
   LogLine,
   NodeVersionInfo,
   Settings,
@@ -110,6 +115,7 @@ export function registerIpc(deps: IpcDeps): void {
 
   ipcMain.handle('runtime:start', async () => {
     const s = getSettings()
+    const active = getActiveInstance(s)
     let launch: LaunchSpec | undefined
     if (s.mode === 'system') {
       const system = await detectSystemDeployment()
@@ -118,19 +124,30 @@ export function registerIpc(deps: IpcDeps): void {
       }
       launch = { nodePath: system.nodePath, entry: system.dshEntry }
     }
-    return runtime.start(s.host, s.port, launch)
+    return runtime.start(active.host, active.port, launch)
   })
 
   ipcMain.handle('runtime:stop', async () => runtime.stop())
 
   ipcMain.handle('runtime:openBrowser', async () => {
     const s = getSettings()
-    shell.openExternal(`http://${s.host}:${s.port}`)
+    const active = getActiveInstance(s)
+    shell.openExternal(`http://${active.host}:${active.port}`)
     return { ok: true }
   })
 
   ipcMain.handle('settings:update', async (_e, patch: Partial<Settings>): Promise<Settings> => {
     const next = patchSettings(getSettings(), patch)
+    if ('addDshToPath' in patch) {
+      const pathDirs = [nodeDistDir(dirs, next.nodeVersion), dirs.prefixDir]
+      const res = next.addDshToPath
+        ? await addDirsToUserPath(pathDirs)
+        : await removeDirsFromUserPath(pathDirs)
+      if (!res.ok) {
+        throw new Error(`更新用户 PATH 失败：${res.error ?? '未知错误'}`)
+      }
+      log.info('settings', `dsh 命令${next.addDshToPath ? '已加入' : '已移出'}用户 PATH`)
+    }
     await saveSettings(next)
     if ('autoLaunch' in patch) {
       app.setLoginItemSettings({ openAtLogin: next.autoLaunch, args: ['--hidden'] })
@@ -198,6 +215,87 @@ export function registerIpc(deps: IpcDeps): void {
   ipcMain.handle('updates:check', async (): Promise<UpdateCheckResult> => checkForUpdates())
 
   ipcMain.handle('updates:install', async () => downloadAndInstallUpdate())
+
+  // ---------- 实例管理 ----------
+
+  ipcMain.handle('instances:list', async (): Promise<Instance[]> => {
+    return getSettings().instances
+  })
+
+  ipcMain.handle('instances:add', async (_e, name: string, host: string, port: number) => {
+    const s = getSettings()
+    if (!name || !name.trim()) return { ok: false, error: '实例名称不能为空' }
+    if (port < 1 || port > 65535) return { ok: false, error: '端口无效（1-65535）' }
+    if (s.instances.some((i) => i.port === port)) return { ok: false, error: `端口 ${port} 已被其它实例使用` }
+    const id = randomUUID()
+    const inst: Instance = { id, name: name.trim(), host: host || '127.0.0.1', port }
+    await saveSettings({ ...s, instances: [...s.instances, inst] })
+    log.info('instances', `新增实例「${inst.name}」${inst.host}:${inst.port}`)
+    return { ok: true, id }
+  })
+
+  ipcMain.handle('instances:update', async (_e, id: string, patch: Partial<Instance>) => {
+    const s = getSettings()
+    const target = s.instances.find((i) => i.id === id)
+    if (!target) return { ok: false, error: '实例不存在' }
+    const next: Instance = {
+      ...target,
+      ...(patch.name !== undefined ? { name: patch.name.trim() || target.name } : {}),
+      ...(patch.host !== undefined ? { host: patch.host || '127.0.0.1' } : {}),
+      ...(patch.port !== undefined ? { port: patch.port } : {})
+    }
+    if (next.port < 1 || next.port > 65535) return { ok: false, error: '端口无效（1-65535）' }
+    if (s.instances.some((i) => i.id !== id && i.port === next.port)) {
+      return { ok: false, error: `端口 ${next.port} 已被其它实例使用` }
+    }
+    const instances = s.instances.map((i) => (i.id === id ? next : i))
+    await saveSettings({ ...s, instances })
+    log.info('instances', `更新实例「${next.name}」`)
+    return { ok: true }
+  })
+
+  ipcMain.handle('instances:remove', async (_e, id: string) => {
+    const s = getSettings()
+    if (s.instances.length <= 1) return { ok: false, error: '至少保留一个实例' }
+    if (!s.instances.some((i) => i.id === id)) return { ok: false, error: '实例不存在' }
+    const instances = s.instances.filter((i) => i.id !== id)
+    const activeInstanceId = s.activeInstanceId === id ? instances[0].id : s.activeInstanceId
+    const merged = { ...s, instances, activeInstanceId }
+    const active = getActiveInstance(merged)
+    await saveSettings({ ...merged, host: active.host, port: active.port })
+    log.info('instances', `删除实例 ${id}`)
+    return { ok: true }
+  })
+
+  ipcMain.handle('instances:activate', async (_e, id: string) => {
+    const s = getSettings()
+    const target = s.instances.find((i) => i.id === id)
+    if (!target) return { ok: false, error: '实例不存在' }
+    if (runtime.getState().status === 'running' || runtime.getState().status === 'starting') {
+      return { ok: false, error: 'DSH 正在运行，请先停止后再切换实例' }
+    }
+    await saveSettings({ ...s, activeInstanceId: id, host: target.host, port: target.port })
+    log.info('instances', `切换到实例「${target.name}」`)
+    return { ok: true }
+  })
+
+  // ---------- 打开目录 ----------
+
+  ipcMain.handle('shell:openPath', async (_e, target: 'dsh-home' | 'logs') => {
+    try {
+      let dir: string
+      if (target === 'logs') {
+        dir = dirs.logsDir
+      } else {
+        dir = process.env.DSH_HOME || path.join(os.homedir(), '.dsh')
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+      }
+      const err = await shell.openPath(dir)
+      return err ? { ok: false, error: err } : { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
 
   ipcMain.handle('logs:snapshot', async (): Promise<LogLine[]> => log.snapshot())
 
