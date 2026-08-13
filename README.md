@@ -67,6 +67,10 @@ Electron GUI（React + antd）
 - [x] M3：PATH 暴露 `dsh` 命令、多实例管理、模型/API Key 配置引导
 - [ ] 后续：并发多实例同时运行、模型/API Key 图形化配置
 
+## 发布
+
+发布新版本（GitHub Releases + 自动更新）见 [RELEASE.md](./RELEASE.md)。
+
 ## License
 
 [MIT](./LICENSE)
