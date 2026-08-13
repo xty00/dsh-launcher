@@ -6,3 +6,5 @@ dist/
 .DS_Store
 Thumbs.db
 .vite/
+# 视频脚本仅本地使用，不进仓库
+docs/video-script.md
