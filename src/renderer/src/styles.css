@@ -1,0 +1,95 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  background: #f5f5f5;
+}
+
+.brand {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.stat-card .ant-statistic-title {
+  color: #8c8c8c;
+}
+
+.log-panel {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 12px;
+  height: 420px;
+  overflow: auto;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.log-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-line .ts {
+  color: #6a9955;
+  margin-right: 8px;
+}
+
+.log-line .lvl {
+  margin-right: 8px;
+  font-weight: 600;
+}
+
+.log-line .src {
+  color: #569cd6;
+  margin-right: 8px;
+}
+
+.log-info .lvl {
+  color: #9cdcfe;
+}
+
+.log-warn .lvl {
+  color: #dcdcaa;
+}
+
+.log-error .lvl {
+  color: #f48771;
+}
+
+.log-debug .lvl {
+  color: #808080;
+}
+
+.setup-log-preview {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 10px;
+  height: 200px;
+  overflow: auto;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #d4d4d4;
+}
