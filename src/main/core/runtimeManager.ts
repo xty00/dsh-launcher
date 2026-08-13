@@ -64,6 +64,15 @@ export class RuntimeManager {
     }
     if (port < 1 || port > 65535) return { ok: false, error: '端口无效（1-65535）' }
 
+    // 启动前先探测：端口已被占用时给出明确提示（可能另有 DSH 实例在运行）
+    if (await this.probeOnce(`http://${host}:${port}`)) {
+      const err =
+        `端口 ${port} 已被占用，可能已有 DSH 实例正在运行（例如另一个 Launcher 已启动它）。` +
+        '请先停止那个实例，或在「设置」中更换端口。'
+      this.set({ status: 'error', lastError: err })
+      return { ok: false, error: err }
+    }
+
     const spec = launch ?? {
       nodePath: nodeExe(this.env.dirs, this.env.getNodeVersion()),
       entry: dshEntry(this.env.dirs)
@@ -123,6 +132,21 @@ export class RuntimeManager {
     this.set({ status: 'running', url })
     this.env.log.info('runtime', `DSH Web 已就绪：${url}`)
     return { ok: true, url }
+  }
+
+  /** 单次探测：目标地址是否有服务响应 */
+  private probeOnce(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const req = http.get(url, (res) => {
+        res.resume()
+        resolve(true)
+      })
+      req.setTimeout(1500, () => {
+        req.destroy()
+        resolve(false)
+      })
+      req.on('error', () => resolve(false))
+    })
   }
 
   private probe(url: string, timeoutMs: number): Promise<boolean> {
