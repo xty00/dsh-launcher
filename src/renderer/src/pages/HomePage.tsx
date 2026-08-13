@@ -6,7 +6,8 @@ import {
   ReloadOutlined,
   RocketOutlined,
   CheckCircleFilled,
-  ExclamationCircleFilled
+  ExclamationCircleFilled,
+  ImportOutlined
 } from '@ant-design/icons'
 import { useState } from 'react'
 import { useStore } from '../store'
@@ -27,8 +28,9 @@ export default function HomePage(): JSX.Element {
 
   if (!state) return <Card loading />
 
-  const { runtime, node, dsh, settings, setupDone } = state
+  const { runtime, node, dsh, settings, setupDone, system } = state
   const meta = STATUS_META[runtime.status] ?? STATUS_META.stopped
+  const isSystemMode = settings.mode === 'system'
 
   const handleStart = async (): Promise<void> => {
     setBusy(true)
@@ -57,23 +59,66 @@ export default function HomePage(): JSX.Element {
     }
   }
 
+  const handleAdopt = async (): Promise<void> => {
+    const res = await window.dshm.adoptSystem()
+    if (res.ok) {
+      message.success('已切换为接管系统部署')
+    } else {
+      message.error(res.error ?? '接管失败')
+    }
+    void refresh()
+  }
+
+  let banner: React.ReactNode = null
+  if (isSystemMode) {
+    banner = (
+      <Alert
+        type="info"
+        showIcon
+        message="当前为接管模式"
+        description={system.detected ? `正在使用系统已安装的 Node.js v${system.nodeVersion} 与 DSH v${system.dshVersion} 进行管理。` : '未检测到系统 DSH，请先在系统中安装 DSH 或切换到自管部署。'}
+        action={
+          <Button size="small" onClick={() => navigate('settings')}>
+            切换部署方式
+          </Button>
+        }
+      />
+    )
+  } else if (system.detected && !setupDone) {
+    banner = (
+      <Alert
+        type="info"
+        showIcon
+        message="检测到系统已有部署"
+        description={`系统已安装 Node.js v${system.nodeVersion} 与 DSH v${system.dshVersion}，无需重新安装，可以直接接管。`}
+        action={
+          <Button type="primary" icon={<ImportOutlined />} onClick={() => void handleAdopt()}>
+            接管系统部署
+          </Button>
+        }
+      />
+    )
+  } else if (!setupDone) {
+    banner = (
+      <Alert
+        type="warning"
+        showIcon
+        message="尚未完成部署"
+        description="DeepSeek Harness 需要先安装 Node.js 与 DSH 才能运行。"
+        action={
+          <Button type="primary" icon={<RocketOutlined />} onClick={() => navigate('setup')}>
+            去部署
+          </Button>
+        }
+      />
+    )
+  }
+
   return (
     <div className="page">
-      {!setupDone && (
-        <Alert
-          type="warning"
-          showIcon
-          message="尚未完成部署"
-          description="DeepSeek Harness 需要先安装 Node.js 与 DSH 才能运行。"
-          action={
-            <Button type="primary" icon={<RocketOutlined />} onClick={() => navigate('setup')}>
-              去部署
-            </Button>
-          }
-        />
-      )}
+      {banner}
 
-      <Row gutter={[16, 16]} style={{ marginTop: setupDone ? 0 : 16 }}>
+      <Row gutter={[16, 16]} style={{ marginTop: banner ? 16 : 0 }}>
         <Col span={6}>
           <Card className="stat-card">
             <Statistic title="Node.js" value={node.version ?? '未安装'} valueStyle={{ fontSize: 20 }} />
@@ -147,7 +192,11 @@ export default function HomePage(): JSX.Element {
         </Space>
         <div style={{ marginTop: 16 }}>
           <Typography.Text type="secondary">
-            提示：关闭本应用不会停止 DSH 服务，它会在后台继续运行；需要停止时点击「停止 DSH」。
+            {isSystemMode ? (
+              <>提示：当前管理的是系统安装的 DSH。关闭本应用不会停止 DSH 服务，它会继续在后台运行。</>
+            ) : (
+              <>提示：关闭本应用不会停止 DSH 服务，它会在后台继续运行；需要停止时点击「停止 DSH」。</>
+            )}
           </Typography.Text>
         </div>
         {runtime.lastError && (

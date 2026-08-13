@@ -19,7 +19,7 @@ export default function AboutPage(): JSX.Element {
         <Space direction="vertical" style={{ marginTop: 24, maxWidth: 560 }}>
           <Typography.Title level={5}>说明</Typography.Title>
           <Typography.Paragraph>
-            DSH Manager 是一个免费开源的 Windows 桌面工具，用于一键部署与管理{' '}
+            DSH Launcher 是一个免费开源的 Windows 桌面工具，用于一键部署与管理{' '}
             <Typography.Link href="https://github.com/deepseek-ai/deepseek-harness" target="_blank">
               DeepSeek Harness
             </Typography.Link>

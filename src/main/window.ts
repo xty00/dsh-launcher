@@ -11,7 +11,7 @@ export function createWindow(): BrowserWindow {
     minHeight: 680,
     show: false,
     autoHideMenuBar: true,
-    title: 'DSH Manager',
+    title: 'DSH Launcher',
     backgroundColor: '#f5f5f5',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),

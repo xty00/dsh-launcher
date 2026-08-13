@@ -1,5 +1,5 @@
-appId: com.dshmanager.app
-productName: DSH Manager
+appId: com.dshlauncher.app
+productName: DSH Launcher
 directories:
   buildResources: build
   output: dist
@@ -9,7 +9,7 @@ files:
 asar: true
 npmRebuild: false
 win:
-  executableName: DSHManager
+  executableName: DSHLauncher
   target:
     - target: nsis
       arch:
@@ -20,6 +20,6 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: DSH Manager
+  shortcutName: DSH Launcher
   deleteAppDataOnUninstall: false
   artifactName: ${productName}-Setup-${version}.${ext}

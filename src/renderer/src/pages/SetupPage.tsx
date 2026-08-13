@@ -1,4 +1,4 @@
-import { Button, Card, Steps, Typography, App as AntApp, Space } from 'antd'
+import { Alert, Button, Card, Steps, Typography, App as AntApp, Space } from 'antd'
 import { RocketOutlined, CheckOutlined } from '@ant-design/icons'
 import { useMemo, useState } from 'react'
 import { useStore } from '../store'
@@ -8,6 +8,7 @@ export default function SetupPage(): JSX.Element {
   const { message } = AntApp.useApp()
   const [busy, setBusy] = useState(false)
 
+  const isSystemMode = state?.settings.mode === 'system'
   const nodeDone = state?.node.installed ?? false
   const dshDone = state?.dsh.installed ?? false
   const running = state?.runtime.status === 'running'
@@ -48,10 +49,26 @@ export default function SetupPage(): JSX.Element {
 
   return (
     <div className="page">
+      {isSystemMode && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="当前为接管模式"
+          description="直接使用系统已安装的 Node.js 与 DSH，无需安装。请到「首页」启动，或到「设置」切换回自管部署。"
+        />
+      )}
       <Card
         title="一键部署"
         extra={
-          <Button type="primary" size="large" icon={<RocketOutlined />} loading={busy} onClick={() => void deploy()}>
+          <Button
+            type="primary"
+            size="large"
+            icon={<RocketOutlined />}
+            loading={busy}
+            disabled={isSystemMode}
+            onClick={() => void deploy()}
+          >
             {busy ? '部署中...' : nodeDone && dshDone ? '重新部署' : '一键部署'}
           </Button>
         }

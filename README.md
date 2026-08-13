@@ -1,4 +1,4 @@
-# DSH Manager
+# DSH Launcher
 
 一键部署与管理 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）的 Windows 桌面工具。
 

@@ -9,7 +9,8 @@ export const DEFAULT_SETTINGS: Settings = {
   host: '127.0.0.1',
   port: 3080,
   registry: 'https://registry.npmjs.org/',
-  autoOpenBrowser: true
+  autoOpenBrowser: true,
+  mode: 'managed'
 }
 
 export function loadSettings(file: string): Settings {
@@ -37,5 +38,6 @@ export function patchSettings(current: Settings, patch: Partial<Settings>): Sett
   if (!next.registry || !/^https?:\/\//.test(next.registry)) next.registry = DEFAULT_SETTINGS.registry
   if (!/^\d+\.\d+\.\d+$/.test(next.nodeVersion)) next.nodeVersion = DEFAULT_SETTINGS.nodeVersion
   if (!next.dshVersion) next.dshVersion = 'latest'
+  if (next.mode !== 'managed' && next.mode !== 'system') next.mode = 'managed'
   return next
 }

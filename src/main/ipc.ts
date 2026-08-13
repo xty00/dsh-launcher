@@ -6,9 +6,10 @@ import { ensureDsh, dshVersion } from './core/dshInstaller'
 import { dshEntry } from './core/paths'
 import type { Dirs } from './core/paths'
 import type { LogHub } from './core/logger'
-import type { RuntimeManager } from './core/runtimeManager'
+import type { LaunchSpec, RuntimeManager } from './core/runtimeManager'
+import { detectSystemDeployment } from './core/systemDetector'
 import { patchSettings } from './core/settings'
-import type { AppState, LogLine, Settings, SetupProgress } from '../shared/types'
+import type { AppState, LogLine, Settings, SetupProgress, SystemDeployment } from '../shared/types'
 
 export interface IpcDeps {
   dirs: Dirs
@@ -31,8 +32,18 @@ export function registerIpc(deps: IpcDeps): void {
 
   ipcMain.handle('app:getState', async (): Promise<AppState> => {
     const s = getSettings()
-    const nodeVersion = await runNodeVersion(envOf(s), s.nodeVersion)
-    const dshVersionInstalled = fs.existsSync(dshEntry(dirs)) ? await dshVersion(envOf(s)) : null
+    const system = await detectSystemDeployment()
+
+    // 按当前 mode 解析「本应用使用的」Node / DSH 版本
+    let nodeVersion: string | null
+    let dshVersionInstalled: string | null
+    if (s.mode === 'system') {
+      nodeVersion = system.nodeVersion
+      dshVersionInstalled = system.dshVersion
+    } else {
+      nodeVersion = await runNodeVersion(envOf(s), s.nodeVersion)
+      dshVersionInstalled = fs.existsSync(dshEntry(dirs)) ? await dshVersion(envOf(s)) : null
+    }
     const runtimeState = runtime.getState()
     return {
       appVersion: app.getVersion(),
@@ -40,8 +51,20 @@ export function registerIpc(deps: IpcDeps): void {
       node: { installed: nodeVersion !== null, version: nodeVersion },
       dsh: { installed: dshVersionInstalled !== null, version: dshVersionInstalled },
       runtime: runtimeState,
-      setupDone: nodeVersion !== null && dshVersionInstalled !== null
+      setupDone: nodeVersion !== null && dshVersionInstalled !== null,
+      system
     }
+  })
+
+  ipcMain.handle('system:detect', async (): Promise<SystemDeployment> => detectSystemDeployment(true))
+
+  ipcMain.handle('system:adopt', async (): Promise<{ ok: boolean; error?: string }> => {
+    const system = await detectSystemDeployment(true)
+    if (!system.detected) return { ok: false, error: '未检测到系统已有的 DSH 部署' }
+    const s = getSettings()
+    await saveSettings({ ...s, mode: 'system' })
+    log.info('system', `已切换为接管系统部署（Node v${system.nodeVersion ?? '?'} / DSH v${system.dshVersion ?? '?'}）`)
+    return { ok: true }
   })
 
   ipcMain.handle('setup:installNode', async (): Promise<{ ok: boolean; version?: string; error?: string }> => {
@@ -77,7 +100,15 @@ export function registerIpc(deps: IpcDeps): void {
 
   ipcMain.handle('runtime:start', async () => {
     const s = getSettings()
-    return runtime.start(s.host, s.port)
+    let launch: LaunchSpec | undefined
+    if (s.mode === 'system') {
+      const system = await detectSystemDeployment()
+      if (!system.dshEntry || !system.nodePath) {
+        return { ok: false, error: '未检测到系统 DSH 部署，请先在系统中安装 DSH' }
+      }
+      launch = { nodePath: system.nodePath, entry: system.dshEntry }
+    }
+    return runtime.start(s.host, s.port, launch)
   })
 
   ipcMain.handle('runtime:stop', async () => runtime.stop())

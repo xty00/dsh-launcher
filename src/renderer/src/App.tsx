@@ -32,7 +32,7 @@ export default function App(): JSX.Element {
     <StoreProvider navigate={(p) => setPage(p as PageKey)}>
       <Layout style={{ minHeight: '100vh' }}>
         <Layout.Sider theme="dark" width={200}>
-          <div className="brand">DSH Manager</div>
+          <div className="brand">DSH Launcher</div>
           <Menu
             theme="dark"
             mode="inline"

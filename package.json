@@ -1,7 +1,7 @@
 {
-  "name": "dsh-manager",
+  "name": "dsh-launcher",
   "version": "0.1.0",
-  "description": "DSH Manager —— 一键部署与管理 DeepSeek Harness 的 Windows 桌面工具",
+  "description": "DSH Launcher —— 一键部署与管理 DeepSeek Harness 的 Windows 桌面工具",
   "author": "DSH Manager Contributors",
   "license": "MIT",
   "private": true,

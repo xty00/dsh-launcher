@@ -1,8 +1,9 @@
 import * as fs from 'node:fs'
 import * as http from 'node:http'
+import * as path from 'node:path'
 import { spawn, execFile } from 'node:child_process'
 import type { Dirs } from './paths'
-import { dshEntry, nodeDistDir, nodeExe } from './paths'
+import { dshEntry, nodeExe } from './paths'
 import type { LogHub } from './logger'
 import type { RuntimeState } from '../../shared/types'
 
@@ -13,6 +14,12 @@ export interface RuntimeEnv {
 }
 
 const START_TIMEOUT_MS = 60_000
+
+/** 启动 DSH 时使用的 node 与入口（managed 模式为自管路径，system 模式为系统路径） */
+export interface LaunchSpec {
+  nodePath: string
+  entry: string
+}
 
 /**
  * DSH 运行时管理器：
@@ -46,15 +53,21 @@ export class RuntimeManager {
     this.onChange(this.getState())
   }
 
-  async start(host: string, port: number): Promise<{ ok: boolean; url?: string; error?: string }> {
+  async start(
+    host: string,
+    port: number,
+    launch?: LaunchSpec
+  ): Promise<{ ok: boolean; url?: string; error?: string }> {
     if (this.state.status === 'running' || this.state.status === 'starting') {
       return { ok: true, url: this.state.url ?? undefined }
     }
     if (port < 1 || port > 65535) return { ok: false, error: '端口无效（1-65535）' }
 
-    const entry = dshEntry(this.env.dirs)
-    const node = nodeExe(this.env.dirs, this.env.nodeVersion)
-    if (!fs.existsSync(entry) || !fs.existsSync(node)) {
+    const spec = launch ?? {
+      nodePath: nodeExe(this.env.dirs, this.env.nodeVersion),
+      entry: dshEntry(this.env.dirs)
+    }
+    if (!fs.existsSync(spec.entry) || !fs.existsSync(spec.nodePath)) {
       const err = '未检测到 DSH 或 Node.js，请先完成部署'
       this.set({ status: 'error', lastError: err })
       return { ok: false, error: err }
@@ -62,14 +75,17 @@ export class RuntimeManager {
 
     this.stopping = false
     this.set({ status: 'starting', host, port, url: `http://${host}:${port}`, lastError: null })
-    this.env.log.info('runtime', `启动 dsh web --host ${host} --port ${port}`)
+    this.env.log.info(
+      'runtime',
+      `启动 dsh web（${spec.nodePath}）--host ${host} --port ${port}`
+    )
 
-    const child = spawn(node, [entry, 'web', '--host', host, '--port', String(port)], {
+    const child = spawn(spec.nodePath, [spec.entry, 'web', '--host', host, '--port', String(port)], {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        PATH: `${nodeDistDir(this.env.dirs, this.env.nodeVersion)};${this.env.dirs.prefixDir};${process.env.PATH ?? ''}`
+        PATH: `${path.dirname(spec.nodePath)};${this.env.dirs.prefixDir};${process.env.PATH ?? ''}`
       }
     })
     this.child = child

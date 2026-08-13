@@ -1,3 +1,5 @@
+export type DeploymentMode = 'managed' | 'system'
+
 export interface Settings {
   /** 要部署的 Node.js 版本（如 22.14.0） */
   nodeVersion: string
@@ -15,6 +17,12 @@ export interface Settings {
   installedNodeVersion?: string
   /** 已安装的 DSH 版本（部署成功后写入） */
   installedDshVersion?: string
+  /**
+   * 部署方式：
+   * - managed：程序自管 Node.js + DSH（默认，可独立卸载）
+   * - system：接管系统中已安装的 Node.js + DSH
+   */
+  mode: DeploymentMode
 }
 
 export type RuntimeStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'exited' | 'error'
@@ -48,14 +56,26 @@ export interface LogLine {
   text: string
 }
 
+export interface SystemDeployment {
+  /** 系统是否同时存在 Node.js 与 DSH */
+  detected: boolean
+  nodePath: string | null
+  nodeVersion: string | null
+  /** 系统 DSH 入口（lib/bin.js 路径） */
+  dshEntry: string | null
+  dshVersion: string | null
+}
+
 export interface AppState {
   appVersion: string
   settings: Settings
   node: { installed: boolean; version: string | null }
   dsh: { installed: boolean; version: string | null }
   runtime: RuntimeState
-  /** Node 与 DSH 是否都已部署完成 */
+  /** Node 与 DSH 是否都已部署完成（按当前 mode 判断） */
   setupDone: boolean
+  /** 系统已有部署检测结果 */
+  system: SystemDeployment
 }
 
 export interface Result<T = undefined> {
@@ -74,6 +94,8 @@ export interface DshmApi {
   openBrowser: () => Promise<{ ok: boolean }>
   updateSettings: (patch: Partial<Settings>) => Promise<Settings>
   exportLogs: () => Promise<{ ok: boolean; path?: string; error?: string }>
+  detectSystem: () => Promise<SystemDeployment>
+  adoptSystem: () => Promise<{ ok: boolean; error?: string }>
   logsSnapshot: () => Promise<LogLine[]>
   onProgress: (cb: (p: SetupProgress) => void) => () => void
   onRuntimeStatus: (cb: (s: RuntimeState) => void) => () => void

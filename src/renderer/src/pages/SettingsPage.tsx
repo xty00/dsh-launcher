@@ -1,10 +1,12 @@
 import {
+  Alert,
   AutoComplete,
   Button,
   Card,
   Form,
   Input,
   InputNumber,
+  Radio,
   Select,
   Switch,
   Typography,
@@ -27,6 +29,10 @@ export default function SettingsPage(): JSX.Element {
   if (!state) return <Card loading />
 
   const onFinish = async (values: Settings): Promise<void> => {
+    if (values.mode === 'system' && !state.system.detected) {
+      message.warning('未检测到系统 DSH，接管模式暂时无法使用；已回退为自管部署')
+      values.mode = 'managed'
+    }
     try {
       const next = await window.dshm.updateSettings(values)
       form.setFieldsValue(next)
@@ -47,6 +53,33 @@ export default function SettingsPage(): JSX.Element {
           onFinish={(v) => void onFinish(v)}
           style={{ maxWidth: 560 }}
         >
+          <Form.Item
+            label="部署方式"
+            name="mode"
+            extra={
+              state.system.detected ? (
+                <>
+                  已检测到系统 Node.js v{state.system.nodeVersion} 与 DSH v{state.system.dshVersion}。
+                  自管：程序独立安装管理，卸载干净；接管：直接管理系统中已安装的 DSH。
+                </>
+              ) : (
+                '自管：程序独立安装管理 Node.js 与 DSH；接管：直接使用系统已有的部署（当前未检测到系统 DSH）。'
+              )
+            }
+          >
+            <Radio.Group>
+              <Radio value="managed">自管部署（推荐）</Radio>
+              <Radio value="system">接管系统已有部署</Radio>
+            </Radio.Group>
+          </Form.Item>
+          {state.settings.mode === 'system' && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="接管模式下，「升级 / 降级」功能不可用，且需保证系统 DSH 未被卸载。"
+            />
+          )}
           <Form.Item label="监听端口" name="port" rules={[{ required: true }]}>
             <InputNumber min={1} max={65535} style={{ width: '100%' }} />
           </Form.Item>
