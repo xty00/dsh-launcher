@@ -47,13 +47,29 @@ function broadcast(channel: string, payload: unknown): void {
   }
 }
 
+/** 带指数退避的重试（针对 GitHub 加速代理导致的间歇性 502） */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 1500): Promise<T> {
+  let lastErr: unknown
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      lastErr = err
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, baseDelayMs * (i + 1)))
+      }
+    }
+  }
+  throw lastErr
+}
+
 export async function checkForUpdates(): Promise<UpdateCheckResult> {
   if (!app.isPackaged) {
     return { ok: false, available: false, error: '开发模式不支持自动更新，请使用打包后的版本' }
   }
   try {
     initUpdater()
-    const result = await autoUpdater.checkForUpdates()
+    const result = await withRetry(() => autoUpdater.checkForUpdates(), 3, 1500)
     const version = result?.updateInfo?.version
     return { ok: true, available: Boolean(version && version !== app.getVersion()), version }
   } catch (err) {
@@ -64,7 +80,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
 export async function downloadAndInstallUpdate(): Promise<{ ok: boolean; error?: string }> {
   try {
     initUpdater()
-    await autoUpdater.downloadUpdate()
+    await withRetry(() => autoUpdater.downloadUpdate(), 3, 2000)
     autoUpdater.quitAndInstall()
     return { ok: true }
   } catch (err) {

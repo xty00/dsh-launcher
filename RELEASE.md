@@ -78,4 +78,5 @@ npm run release
 - **上传时报 401/403**：`GH_TOKEN` 未设置或权限不足（需要 Contents: read/write）
 - **检查更新提示「开发模式不支持」**：说明跑的是 `npm run dev` 或未打包版本，请用安装包版本
 - **检查更新提示网络错误**：本机无法访问 api.github.com（代理/证书问题），参考项目根目录 `.npmrc` 中关于系统证书的说明
+- **下载时偶发 502 / 网络错误**：部分机器用 GitHub 加速工具（hosts 指向本地代理，如 #S302）转发 release-assets CDN 不稳定，属间歇性问题。0.2.2 起更新检查与下载已内置 3 次自动重试；仍失败可手动再点一次「检查更新」。可考虑在加速工具中为 `release-assets.githubusercontent.com` 配置更稳定的代理或直连
 - **安装包文件名**：electron-builder 会自动把 `DSH Launcher` 中的空格替换为 `-`（`DSH-Launcher-Setup-x.y.z.exe`），这是正常的
