@@ -1,8 +1,6 @@
 import * as fs from 'node:fs'
 import { spawn } from 'node:child_process'
-import type { Dirs } from './paths'
 import { dshEntry, nodeDistDir, nodeExe, npmCliJs } from './paths'
-import type { LogHub } from './logger'
 import type { InstallEnv, ProgressCb } from './nodeInstaller'
 
 /**
@@ -26,7 +24,7 @@ export async function ensureDsh(env: InstallEnv, version: string, onProgress: Pr
 
   const spec = version === 'latest' ? '@deepseek-ai/dsh' : `@deepseek-ai/dsh@${version}`
   onProgress('install', null, '安装 pnpm 与 DSH（首次较慢，请耐心等待）...')
-  await runNpm(env, ['install', '-g', 'pnpm', spec, '--prefix', dirs.prefixDir, '--registry', registry, '--no-audit', '--no-fund', '--loglevel', 'info'], 'dsh', onProgress)
+  await runNpm(env, ['install', '-g', 'pnpm', spec, '--prefix', dirs.prefixDir, '--registry', registry, '--no-audit', '--no-fund', '--loglevel', 'info'], 'dsh')
 
   if (!fs.existsSync(entry)) throw new Error('安装后未找到 dsh 入口文件（node_modules/@deepseek-ai/dsh）')
   const v = await dshVersion(env)
@@ -35,7 +33,7 @@ export async function ensureDsh(env: InstallEnv, version: string, onProgress: Pr
   onProgress('done', 100, `DSH v${v} 就绪`)
 }
 
-function runNpm(env: InstallEnv, args: string[], source: string, onProgress: ProgressCb): Promise<void> {
+function runNpm(env: InstallEnv, args: string[], source: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const node = nodeExe(env.dirs, env.nodeVersion)
     const npmCli = npmCliJs(env.dirs, env.nodeVersion)

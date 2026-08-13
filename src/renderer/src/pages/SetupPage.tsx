@@ -2,7 +2,6 @@ import { Button, Card, Steps, Typography, App as AntApp, Space } from 'antd'
 import { RocketOutlined, CheckOutlined } from '@ant-design/icons'
 import { useMemo, useState } from 'react'
 import { useStore } from '../store'
-import type { SetupProgress } from '../../../shared/types'
 
 export default function SetupPage(): JSX.Element {
   const { state, logs, progress, refresh } = useStore()

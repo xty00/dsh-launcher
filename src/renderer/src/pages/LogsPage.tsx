@@ -69,7 +69,7 @@ export default function LogsPage(): JSX.Element {
           {shown.map((l) => (
             <div key={l.id} className={`log-line log-${l.level}`}>
               <span className="ts">{l.ts.slice(11, 23)}</span>
-              <span className="lvl">[{l.level.toUpperCase()}]</span>
+              <span className="lvl" style={{ color: LEVEL_COLOR[l.level] }}>[{l.level.toUpperCase()}]</span>
               <span className="src">[{l.source}]</span>
               {l.text}
             </div>
