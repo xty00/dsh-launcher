@@ -30,6 +30,8 @@ const api: DshmApi = {
     ipcRenderer.invoke('setup:installDsh') as Promise<{ ok: boolean; version?: string; error?: string }>,
   start: () => ipcRenderer.invoke('runtime:start') as Promise<{ ok: boolean; url?: string; error?: string }>,
   stop: () => ipcRenderer.invoke('runtime:stop') as Promise<{ ok: boolean }>,
+  stopExternal: () =>
+    ipcRenderer.invoke('runtime:stopExternal') as Promise<{ ok: boolean; error?: string }>,
   openBrowser: () => ipcRenderer.invoke('runtime:openBrowser') as Promise<{ ok: boolean }>,
   updateSettings: (patch: Partial<Settings>) =>
     ipcRenderer.invoke('settings:update', patch) as Promise<Settings>,

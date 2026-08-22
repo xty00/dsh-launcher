@@ -43,6 +43,12 @@ export interface Settings {
 
 export type RuntimeStatus = 'stopped' | 'starting' | 'running' | 'stopping' | 'exited' | 'error'
 
+export interface ExternalInstanceInfo {
+  pid: number
+  commandLine: string
+  startedAt: string | null
+}
+
 export interface RuntimeState {
   status: RuntimeStatus
   pid: number | null
@@ -50,6 +56,10 @@ export interface RuntimeState {
   port: number
   url: string | null
   lastError: string | null
+  /** 当前运行的实例是否为外部启动（非本应用拉起） */
+  external: boolean
+  /** 外部实例的进程信息 */
+  externalInfo: ExternalInstanceInfo | null
 }
 
 export interface SetupProgress {
@@ -98,6 +108,10 @@ export interface SystemDeployment {
   /** 系统 DSH 入口（lib/bin.js 路径） */
   dshEntry: string | null
   dshVersion: string | null
+  /** 系统 DSH 的 npm 全局前缀（由 dshEntry 反推） */
+  dshGlobalPrefix: string | null
+  /** 升级系统 DSH 是否需要管理员权限 */
+  requiresAdmin: boolean
 }
 
 export interface AppState {
@@ -125,6 +139,8 @@ export interface DshmApi {
   installDsh: () => Promise<{ ok: boolean; version?: string; error?: string }>
   start: () => Promise<{ ok: boolean; url?: string; error?: string }>
   stop: () => Promise<{ ok: boolean }>
+  /** 停止外部启动的 DSH 实例（调用方需先经用户确认） */
+  stopExternal: () => Promise<{ ok: boolean; error?: string }>
   openBrowser: () => Promise<{ ok: boolean }>
   updateSettings: (patch: Partial<Settings>) => Promise<Settings>
   exportLogs: () => Promise<{ ok: boolean; path?: string; error?: string }>

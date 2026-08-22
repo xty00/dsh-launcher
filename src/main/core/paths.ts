@@ -10,6 +10,8 @@ export interface Dirs {
   /** DSH / pnpm 的 npm 全局安装前缀 */
   prefixDir: string
   logsDir: string
+  /** 升级系统 DSH 前的备份目录 */
+  backupDir: string
   settingsFile: string
 }
 
@@ -20,12 +22,13 @@ export function resolveDirs(root: string): Dirs {
     runtimeDir: path.join(root, 'runtime'),
     prefixDir: path.join(root, 'prefix'),
     logsDir: path.join(root, 'logs'),
+    backupDir: path.join(root, 'backup'),
     settingsFile: path.join(root, 'settings.json')
   }
 }
 
 export function ensureDirs(dirs: Dirs): void {
-  for (const d of [dirs.root, dirs.tmpDir, dirs.runtimeDir, dirs.prefixDir, dirs.logsDir]) {
+  for (const d of [dirs.root, dirs.tmpDir, dirs.runtimeDir, dirs.prefixDir, dirs.logsDir, dirs.backupDir]) {
     fs.mkdirSync(d, { recursive: true })
   }
 }

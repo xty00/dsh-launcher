@@ -23,13 +23,14 @@ const STATUS_META: Record<string, { color: string; text: string }> = {
 
 export default function HomePage(): JSX.Element {
   const { state, refresh, navigate } = useStore()
-  const { message } = AntApp.useApp()
+  const { message, modal } = AntApp.useApp()
   const [busy, setBusy] = useState(false)
 
   if (!state) return <Card loading />
 
   const { runtime, node, dsh, settings, setupDone, system } = state
   const meta = STATUS_META[runtime.status] ?? STATUS_META.stopped
+  const isExternalRunning = runtime.external && runtime.status === 'running'
   const isSystemMode = settings.mode === 'system'
   const activeInstance = settings.instances.find((i) => i.id === settings.activeInstanceId) ?? settings.instances[0]
 
@@ -50,6 +51,39 @@ export default function HomePage(): JSX.Element {
   }
 
   const handleStop = async (): Promise<void> => {
+    // 外部实例：先确认再强杀
+    if (runtime.external && runtime.externalInfo) {
+      modal.confirm({
+        title: '停止外部 DSH 实例？',
+        content: (
+          <div>
+            <p>该 DSH 实例不是由 DSH Launcher 启动的：</p>
+            <Typography.Text code style={{ fontSize: 12 }}>PID {runtime.externalInfo.pid}</Typography.Text>
+            <p style={{ marginTop: 8 }}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {runtime.externalInfo.commandLine}
+              </Typography.Text>
+            </p>
+            <p>将强制结束该进程（连同其子进程），确定继续吗？</p>
+          </div>
+        ),
+        okText: '强制停止',
+        okButtonProps: { danger: true },
+        cancelText: '取消',
+        onOk: async () => {
+          setBusy(true)
+          try {
+            const res = await window.dshm.stopExternal()
+            if (res.ok) message.success('外部 DSH 实例已停止')
+            else message.error(res.error ?? '停止失败')
+          } finally {
+            setBusy(false)
+            void refresh()
+          }
+        }
+      })
+      return
+    }
     setBusy(true)
     try {
       await window.dshm.stop()
@@ -134,7 +168,7 @@ export default function HomePage(): JSX.Element {
           <Card className="stat-card">
             <Statistic
               title="运行状态"
-              value={meta.text}
+              value={isExternalRunning ? '运行中（外部实例）' : meta.text}
               valueStyle={{ fontSize: 20 }}
               prefix={
                 runtime.status === 'running' ? (
@@ -203,6 +237,34 @@ export default function HomePage(): JSX.Element {
         {runtime.lastError && (
           <div style={{ marginTop: 8 }}>
             <Tag color="red">{runtime.lastError}</Tag>
+          </div>
+        )}
+        {isExternalRunning && runtime.externalInfo && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: '10px 14px',
+              background: 'rgba(255, 159, 10, 0.12)',
+              border: '1px solid rgba(255, 159, 10, 0.3)',
+              borderRadius: 10
+            }}
+          >
+            <Typography.Text strong>⚠️ 外部实例（非本应用启动）</Typography.Text>
+            <Typography.Paragraph style={{ marginTop: 6, marginBottom: 0 }} type="secondary">
+              <Typography.Text code style={{ fontSize: 12 }}>PID {runtime.externalInfo.pid}</Typography.Text>{' '}
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {runtime.externalInfo.startedAt
+                  ? '启动于 ' + new Date(runtime.externalInfo.startedAt).toLocaleString()
+                  : ''}
+              </Typography.Text>
+              <br />
+              <Typography.Text style={{ fontSize: 12, wordBreak: 'break-all' }}>
+                {runtime.externalInfo.commandLine}
+              </Typography.Text>
+            </Typography.Paragraph>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              点「停止 DSH」可强制停止它（会先弹确认）。
+            </Typography.Text>
           </div>
         )}
         {activeInstance && (

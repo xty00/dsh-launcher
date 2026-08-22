@@ -4,8 +4,9 @@ import * as path from 'node:path'
 import { spawn, execFile } from 'node:child_process'
 import type { Dirs } from './paths'
 import { dshEntry, nodeExe } from './paths'
+import { detectExternalOnPort } from './externalDetector'
 import type { LogHub } from './logger'
-import type { RuntimeState } from '../../shared/types'
+import type { ExternalInstanceInfo, RuntimeState } from '../../shared/types'
 
 export interface RuntimeEnv {
   dirs: Dirs
@@ -36,7 +37,9 @@ export class RuntimeManager {
     host: '127.0.0.1',
     port: 3080,
     url: null,
-    lastError: null
+    lastError: null,
+    external: false,
+    externalInfo: null
   }
   private stopping = false
 
@@ -64,12 +67,16 @@ export class RuntimeManager {
     }
     if (port < 1 || port > 65535) return { ok: false, error: '端口无效（1-65535）' }
 
-    // 启动前先探测：端口已被占用时给出明确提示（可能另有 DSH 实例在运行）
-    if (await this.probeOnce(`http://${host}:${port}`)) {
-      const err =
-        `端口 ${port} 已被占用，可能已有 DSH 实例正在运行（例如另一个 Launcher 已启动它）。` +
-        '请先停止那个实例，或在「设置」中更换端口。'
-      this.set({ status: 'error', lastError: err })
+    // 启动前检测端口：外部 DSH 或其它程序占用时给出明确提示
+    const det = await detectExternalOnPort(host, port)
+    if (det.state === 'external-dsh') {
+      const err = `端口 ${port} 已有外部启动的 DSH 实例在运行（PID ${det.info.pid}）。请先停止它，或更换端口。`
+      this.set({ status: 'error', lastError: err, external: true, externalInfo: det.info })
+      return { ok: false, error: err }
+    }
+    if (det.state === 'other-occupied') {
+      const err = `端口 ${port} 被其他程序占用（PID ${det.pid}，非 DSH）。请先释放端口，或在「设置」中更换端口。`
+      this.set({ status: 'error', lastError: err, external: false, externalInfo: null })
       return { ok: false, error: err }
     }
 
@@ -114,7 +121,9 @@ export class RuntimeManager {
           this.set({
             status: 'exited',
             pid: null,
-            lastError: `dsh 进程退出（code=${code ?? signal ?? '?'}）`
+            lastError: `dsh 进程退出（code=${code ?? signal ?? '?'}）`,
+            external: false,
+            externalInfo: null
           })
         }
       }
@@ -129,24 +138,9 @@ export class RuntimeManager {
       }
       return { ok: false, error: '服务未就绪' }
     }
-    this.set({ status: 'running', url })
+    this.set({ status: 'running', url, external: false, externalInfo: null })
     this.env.log.info('runtime', `DSH Web 已就绪：${url}`)
     return { ok: true, url }
-  }
-
-  /** 单次探测：目标地址是否有服务响应 */
-  private probeOnce(url: string): Promise<boolean> {
-    return new Promise((resolve) => {
-      const req = http.get(url, (res) => {
-        res.resume()
-        resolve(true)
-      })
-      req.setTimeout(1500, () => {
-        req.destroy()
-        resolve(false)
-      })
-      req.on('error', () => resolve(false))
-    })
   }
 
   private probe(url: string, timeoutMs: number): Promise<boolean> {
@@ -185,7 +179,7 @@ export class RuntimeManager {
   async stop(): Promise<{ ok: boolean }> {
     const child = this.child
     if (!child) {
-      this.set({ status: 'stopped', pid: null, url: null, lastError: null })
+      this.set({ status: 'stopped', pid: null, url: null, lastError: null, external: false, externalInfo: null })
       return { ok: true }
     }
     this.stopping = true
@@ -208,8 +202,35 @@ export class RuntimeManager {
     }
     this.child = null
     this.stopping = false
-    this.set({ status: 'stopped', pid: null, url: null, lastError: null })
+    this.set({ status: 'stopped', pid: null, url: null, lastError: null, external: false, externalInfo: null })
     this.env.log.info('runtime', 'DSH 已停止')
+    return { ok: true }
+  }
+
+  /** 由 getState 轮询调用：把外部实例状态合并进运行时状态 */
+  reconcileExternal(det: { state: 'none' } | { state: 'external-dsh'; info: ExternalInstanceInfo } | { state: 'other-occupied'; pid: number; commandLine: string | null }): void {
+    if (this.child) return // 自己管理的实例在跑，忽略外部检测
+    if (det.state === 'external-dsh') {
+      if (!this.state.external || this.state.externalInfo?.pid !== det.info.pid) {
+        this.env.log.info('runtime', `检测到外部 DSH 实例（PID ${det.info.pid}）`)
+      }
+      this.set({ status: 'running', external: true, externalInfo: det.info, url: `http://${this.state.host}:${this.state.port}`, lastError: null })
+    } else if (det.state === 'other-occupied') {
+      this.set({ status: 'error', external: false, externalInfo: null, lastError: `端口被其他程序占用（PID ${det.pid}，非 DSH）` })
+    } else if (this.state.external) {
+      this.set({ status: 'stopped', external: false, externalInfo: null, lastError: null })
+    }
+  }
+
+  /** 停止外部启动的 DSH 实例（调用方需先经用户确认） */
+  async stopExternal(): Promise<{ ok: boolean; error?: string }> {
+    const info = this.state.externalInfo
+    if (!info) return { ok: false, error: '没有检测到外部 DSH 实例' }
+    this.env.log.warn('runtime', `强制停止外部 DSH 实例（PID ${info.pid}）`)
+    await this.killTree(info.pid)
+    await new Promise((r) => setTimeout(r, 500))
+    this.set({ status: 'stopped', pid: null, url: null, lastError: null, external: false, externalInfo: null })
+    this.env.log.info('runtime', '外部 DSH 实例已停止')
     return { ok: true }
   }
 

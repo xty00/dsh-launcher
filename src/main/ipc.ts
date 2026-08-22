@@ -10,6 +10,8 @@ import type { Dirs } from './core/paths'
 import type { LogHub } from './core/logger'
 import type { LaunchSpec, RuntimeManager } from './core/runtimeManager'
 import { detectSystemDeployment } from './core/systemDetector'
+import { detectExternalOnPort } from './core/externalDetector'
+import { switchSystemDsh, readSystemDshVersion } from './core/systemDshUpdater'
 import { patchSettings, getActiveInstance } from './core/settings'
 import { addDirsToUserPath, removeDirsFromUserPath } from './core/pathManager'
 import { nodeDistDir } from './core/paths'
@@ -59,6 +61,10 @@ export function registerIpc(deps: IpcDeps): void {
       nodeVersion = await runNodeVersion(envOf(s), s.nodeVersion)
       dshVersionInstalled = fs.existsSync(dshEntry(dirs)) ? await dshVersion(envOf(s)) : null
     }
+    // 外部 DSH 检测（仅活动实例端口）
+    const active = getActiveInstance(s)
+    const det = await detectExternalOnPort(active.host, active.port)
+    runtime.reconcileExternal(det)
     const runtimeState = runtime.getState()
     return {
       appVersion: app.getVersion(),
@@ -129,6 +135,8 @@ export function registerIpc(deps: IpcDeps): void {
 
   ipcMain.handle('runtime:stop', async () => runtime.stop())
 
+  ipcMain.handle('runtime:stopExternal', async () => runtime.stopExternal())
+
   ipcMain.handle('runtime:openBrowser', async () => {
     const s = getSettings()
     const active = getActiveInstance(s)
@@ -190,7 +198,27 @@ export function registerIpc(deps: IpcDeps): void {
 
   ipcMain.handle('versions:switchDsh', async (_e, version: string): Promise<{ ok: boolean; version?: string; error?: string }> => {
     const s = getSettings()
-    if (s.mode !== 'managed') return { ok: false, error: '接管模式下请通过系统自身管理 DSH 版本' }
+    // 接管模式：更新系统安装的 DSH（带备份/回滚，必要时 UAC 提权）
+    if (s.mode === 'system') {
+      try {
+        if (runtime.getState().status === 'running' || runtime.getState().status === 'starting') {
+          log.info('versions', '切换版本前先停止 DSH')
+          await runtime.stop()
+        }
+        const system = await detectSystemDeployment(true)
+        await switchSystemDsh({ dirs, log, system }, version, (phase, percent, message) =>
+          broadcast('setup:progress', { step: 'dsh', phase, percent, message } satisfies SetupProgress)
+        )
+        const v = await readSystemDshVersion(system)
+        await saveSettings({ ...s, dshVersion: version, installedDshVersion: v ?? version })
+        log.info('versions', `系统 DSH 已切换至 v${v ?? version}`)
+        return { ok: true, version: v ?? version }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        log.error('versions', `系统 DSH 切换失败: ${msg}`)
+        return { ok: false, error: msg }
+      }
+    }
     try {
       if (runtime.getState().status === 'running' || runtime.getState().status === 'starting') {
         log.info('versions', '切换版本前先停止 DSH')

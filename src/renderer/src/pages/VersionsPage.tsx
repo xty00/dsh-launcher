@@ -6,7 +6,7 @@ import type { DshVersionInfo, NodeVersionInfo } from '../../../shared/types'
 
 export default function VersionsPage(): JSX.Element {
   const { state, progress, refresh } = useStore()
-  const { message } = AntApp.useApp()
+  const { message, modal } = AntApp.useApp()
 
   const [nodeVersions, setNodeVersions] = useState<NodeVersionInfo[]>([])
   const [nodeTarget, setNodeTarget] = useState<string | undefined>(undefined)
@@ -59,9 +59,27 @@ export default function VersionsPage(): JSX.Element {
 
   const switchDsh = async (): Promise<void> => {
     if (!dshTarget) return
+    if (isSystemMode) {
+      modal.confirm({
+        title: `将系统 DSH 切换至 v${dshTarget}？`,
+        content:
+          '将使用系统 npm 升级/降级系统安装的 DSH。升级前自动备份，失败自动回滚；如需管理员权限会弹出 UAC。若 DSH 正在运行会先停止。',
+        okText: '切换',
+        okButtonProps: { danger: true },
+        cancelText: '取消',
+        onOk: () => doSwitchDsh()
+      })
+      return
+    }
+    void doSwitchDsh()
+  }
+
+  const doSwitchDsh = async (): Promise<void> => {
+    const target = dshTarget
+    if (!target) return
     setBusy('dsh')
     try {
-      const res = await window.dshm.switchDsh(dshTarget)
+      const res = await window.dshm.switchDsh(target)
       if (res.ok) {
         message.success(`DSH 已切换至 v${res.version}`)
       } else {
@@ -80,11 +98,11 @@ export default function VersionsPage(): JSX.Element {
     <div className="page">
       {isSystemMode && (
         <Alert
-          type="warning"
+          type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="接管模式下版本管理不可用"
-          description="当前管理的是系统安装的 Node.js 与 DSH，请通过系统自身进行升级；或到「设置」切换回自管部署。"
+          message="接管模式说明"
+          description="Node.js 由系统自身管理（不可在此切换）；DSH 可用本页面升级/降级，升级前会自动备份，失败自动回滚。"
         />
       )}
 
@@ -148,20 +166,33 @@ export default function VersionsPage(): JSX.Element {
           <Descriptions.Item label="最新版本">
             {dshInfo ? <Tag color="gold">v{dshInfo.latest}</Tag> : '-'}
           </Descriptions.Item>
+          {isSystemMode && state.system.dshGlobalPrefix && (
+            <Descriptions.Item label="安装位置">
+              <Typography.Text style={{ fontSize: 12 }}>{state.system.dshGlobalPrefix}</Typography.Text>
+            </Descriptions.Item>
+          )}
+          {isSystemMode && (
+            <Descriptions.Item label="权限">
+              {state.system.requiresAdmin ? (
+                <Tag color="orange">需管理员（将弹 UAC）</Tag>
+              ) : (
+                <Tag color="green">普通权限</Tag>
+              )}
+            </Descriptions.Item>
+          )}
         </Descriptions>
         <Space wrap>
           <Select
             style={{ width: 200 }}
             value={dshTarget}
             onChange={setDshTarget}
-            disabled={isSystemMode}
             placeholder="选择目标版本"
             options={(dshInfo?.versions ?? []).map((v) => ({ value: v, label: `v${v}${v === dshInfo?.latest ? '（最新）' : ''}` }))}
           />
           <Button
             type="primary"
             icon={<SyncOutlined />}
-            disabled={isSystemMode || !dshTarget || dshTarget === currentDsh || busy !== null}
+            disabled={!dshTarget || dshTarget === currentDsh || busy !== null}
             loading={busy === 'dsh'}
             onClick={() => void switchDsh()}
           >
@@ -177,7 +208,7 @@ export default function VersionsPage(): JSX.Element {
 
       <Card style={{ marginTop: 16 }}>
         <Typography.Text type="secondary">
-          提示：切换版本需要联网下载（Node.js 约 30MB / DSH 视依赖而定）。切换前会先自动停止正在运行的 DSH，切换完成后请重新启动。
+          提示：切换版本需要联网下载。切换前会先自动停止正在运行的 DSH；接管模式下切换的是系统安装的 DSH（自动备份，失败回滚）。
         </Typography.Text>
       </Card>
     </div>
