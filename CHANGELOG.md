@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.3（2026-08-22）
+
+定期维护 + UI 改版。
+
+### UI
+- Apple 风格改版：磨砂玻璃卡片（backdrop-filter）、大圆角、SF 风格字体栈、苹果蓝主色（#0071e3）、柔和阴影
+- 深浅色主题跟随系统（prefers-color-scheme + antd darkAlgorithm），窗口背景同步避免闪色
+- 侧边栏改为浅色磨砂，日志面板统一为终端深色风格
+
+### 维护
+- 升级 electron-updater 6.3.9 → 6.8.9（修复：跨域重定向泄露 token 头，高危）
+- 升级 electron-builder 24.13.3 → 26.15.3（修复：AppImage 路径注入，高危）
+- npm 安全审计改用官方源（淘宝镜像不支持 audit 接口）
+- 验证 electron-updater/extract-zip 已正确打包进应用
+
+### 风险提示（未解决项）
+- Electron 33 → 43 落后 10 个大版本，需专项升级（涉及 electron-vite 联动）
+- 无自动化测试；部署下载（Node.js 30MB）无重试
+- 未做代码签名；react 18 / antd 5 待升级
+
 ## 0.2.2（2026-08-14）
 
 修复自动更新链路。
