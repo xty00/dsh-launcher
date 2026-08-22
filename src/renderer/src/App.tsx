@@ -34,10 +34,10 @@ export default function App(): JSX.Element {
   return (
     <StoreProvider navigate={(p) => setPage(p as PageKey)}>
       <Layout style={{ minHeight: '100vh' }}>
-        <Layout.Sider theme="dark" width={200}>
+        <Layout.Sider className="app-sider" width={220} theme="light">
           <div className="brand">DSH Launcher</div>
           <Menu
-            theme="dark"
+            theme="light"
             mode="inline"
             selectedKeys={[page]}
             onClick={({ key }) => setPage(key as PageKey)}
@@ -45,7 +45,7 @@ export default function App(): JSX.Element {
           />
         </Layout.Sider>
         <Layout>
-          <Layout.Content style={{ padding: 24, overflow: 'auto', height: '100vh' }}>
+          <Layout.Content style={{ padding: '28px 32px', overflow: 'auto', height: '100vh' }}>
             {PAGES.find((p) => p.key === page)!.el}
           </Layout.Content>
         </Layout>

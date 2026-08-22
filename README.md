@@ -13,7 +13,7 @@ DeepSeek Harness（DSH）是一个强大的 AI Agent 开发环境，但自己安
 
 ## 📸 界面预览
 
-![首页](docs/screenshots/home-v2.png)
+![首页](docs/screenshots/home-v3.png)
 
 > 更多截图（部署向导 / 版本管理 / 日志 / 设置）陆续补充中；也欢迎在 [Issues](https://github.com/zhanweipan/dsh-launcher/issues) 提建议。
 

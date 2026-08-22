@@ -1,4 +1,4 @@
-import { BrowserWindow, shell } from 'electron'
+import { BrowserWindow, nativeTheme, shell } from 'electron'
 import * as path from 'node:path'
 
 let mainWindow: BrowserWindow | null = null
@@ -12,7 +12,8 @@ export function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     title: 'DSH Launcher',
-    backgroundColor: '#f5f5f5',
+    // 跟随系统深浅色，避免启动闪白/闪黑
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1c1c1e' : '#f5f5f7',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,

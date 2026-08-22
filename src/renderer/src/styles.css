@@ -1,3 +1,31 @@
+/* ============ Apple 风格设计令牌 ============ */
+:root {
+  --apple-bg: #f5f5f7;
+  --apple-bg-2: #ebebf0;
+  --apple-text: #1d1d1f;
+  --apple-text-2: #86868b;
+  --apple-panel: rgba(255, 255, 255, 0.72);
+  --apple-panel-strong: rgba(255, 255, 255, 0.85);
+  --apple-border: rgba(0, 0, 0, 0.06);
+  --apple-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --apple-accent: #0071e3;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --apple-bg: #1c1c1e;
+    --apple-bg-2: #2a2a2c;
+    --apple-text: #f5f5f7;
+    --apple-text-2: #98989d;
+    --apple-panel: rgba(44, 44, 46, 0.72);
+    --apple-panel-strong: rgba(44, 44, 46, 0.9);
+    --apple-border: rgba(255, 255, 255, 0.08);
+    --apple-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -11,39 +39,104 @@ body,
 }
 
 body {
-  font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
-  background: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI Variable Display',
+    'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: var(--apple-text);
+  background: linear-gradient(160deg, var(--apple-bg) 0%, var(--apple-bg-2) 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ============ 侧边栏（磨砂） ============ */
+.app-sider {
+  background: var(--apple-panel) !important;
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border-right: 1px solid var(--apple-border);
+}
+
+.app-sider .ant-menu {
+  background: transparent !important;
+  border-inline-end: none !important;
+  padding: 8px 10px;
 }
 
 .brand {
-  height: 56px;
+  height: 68px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 16px;
+  gap: 10px;
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  color: var(--apple-text);
+  user-select: none;
+}
+
+.brand::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--apple-accent);
+  box-shadow: 0 0 14px rgba(0, 113, 227, 0.55);
+}
+
+/* ============ 卡片（磨砂 + 大圆角 + 柔和阴影） ============ */
+.ant-card {
+  background: var(--apple-panel) !important;
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid var(--apple-border) !important;
+  box-shadow: var(--apple-shadow);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.10);
+}
+
+.ant-card .ant-card-head {
+  border-bottom: 1px solid var(--apple-border);
+}
+
+/* ============ 布局 ============ */
+.ant-layout {
+  background: transparent !important;
+}
+
+.ant-layout-content {
+  overflow: auto;
 }
 
 .page {
-  max-width: 960px;
+  max-width: 920px;
   margin: 0 auto;
 }
 
-.stat-card .ant-statistic-title {
-  color: #8c8c8c;
+/* ============ 统计卡片 ============ */
+.stat-card .ant-statistic-content {
+  font-weight: 600;
 }
 
+.stat-card .ant-statistic-title {
+  color: var(--apple-text-2);
+}
+
+/* ============ 日志面板（终端风格，深浅主题通用） ============ */
 .log-panel {
-  background: #1e1e1e;
-  border-radius: 8px;
+  background: rgba(20, 20, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   padding: 12px;
   height: 420px;
   overflow: auto;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: 'SF Mono', Consolas, 'Courier New', monospace;
   font-size: 12px;
   line-height: 1.6;
+  color: #d4d4d8;
 }
 
 .log-line {
@@ -82,14 +175,35 @@ body {
   color: #808080;
 }
 
+/* ============ 部署日志预览 ============ */
 .setup-log-preview {
-  background: #1e1e1e;
-  border-radius: 8px;
+  background: rgba(20, 20, 22, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   padding: 10px;
   height: 200px;
   overflow: auto;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: 'SF Mono', Consolas, 'Courier New', monospace;
   font-size: 12px;
   line-height: 1.5;
-  color: #d4d4d4;
+  color: #d4d4d8;
+}
+
+/* ============ 滚动条（苹果风格细滚动条） ============ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.35);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.55);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }

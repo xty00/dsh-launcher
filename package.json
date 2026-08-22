@@ -1,6 +1,6 @@
 {
   "name": "dsh-launcher",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "DSH Launcher —— 一键部署与管理 DeepSeek Harness 的 Windows 桌面工具",
   "author": "zhanwei",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "release": "electron-vite build && electron-builder --win --publish always"
   },
   "dependencies": {
-    "electron-updater": "^6.3.9",
+    "electron-updater": "^6.8.9",
     "extract-zip": "^2.0.1"
   },
   "devDependencies": {
@@ -32,7 +32,7 @@
     "@vitejs/plugin-react": "^4.3.3",
     "antd": "^5.22.2",
     "electron": "^33.2.0",
-    "electron-builder": "^24.13.3",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
