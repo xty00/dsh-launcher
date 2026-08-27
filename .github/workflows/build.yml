@@ -1,0 +1,51 @@
+name: Build & Release
+
+# 手动触发（Actions 页 → Run workflow）或推送 v* tag 时自动打包并发 Release
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build (electron-vite)
+        run: npm run build
+
+      # 覆盖 electron-builder.yml 中的 publish.owner/repo，让 Release 发到本 fork
+      # （yml 里 publish.releaseType: release 保证发正式 Release，自动更新可解析 latest.yml）
+      - name: Package NSIS installer
+        run: npx electron-builder --win -c.publish.owner=xty00 -c.publish.repo=dsh-launcher
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DSH-Launcher-Setup
+          path: dist/*.exe
+          if-no-files-found: error
+
+      # 仅 tag 触发时发布 GitHub Release（含 latest.yml，用户可自动更新）
+      - name: Publish GitHub Release (tag only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: npx electron-builder --win --publish always -c.publish.owner=xty00 -c.publish.repo=dsh-launcher
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
