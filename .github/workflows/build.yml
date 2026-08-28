@@ -37,11 +37,10 @@ jobs:
       - name: Build (electron-vite)
         run: npm run build
 
-      # 覆盖 electron-builder.yml 中的 publish.owner/repo，让 Release 发到本 fork
-      # （yml 里 publish.releaseType: release 保证发正式 Release，自动更新可解析 latest.yml）
-      # 注意：必须用长格式 --config.publish.*（短格式 -c.publish.* 会被解析成配置文件路径）
+      # 打包（注意：electron-builder.yml 里配了 publish，tag 构建会默认 onTagOrDraft 发布，
+      # 必须显式 --publish never，否则会与下方 Publish 步骤重复发布、产生重复 Release）
       - name: Package NSIS installer
-        run: npx electron-builder --win --config.publish.owner=xty00 --config.publish.repo=dsh-launcher
+        run: npx electron-builder --win --publish never --config.publish.owner=xty00 --config.publish.repo=dsh-launcher
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
