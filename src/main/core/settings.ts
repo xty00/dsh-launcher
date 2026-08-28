@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import type { Instance, Settings } from '../../shared/types'
 
 export const DEFAULT_SETTINGS: Settings = {
-  nodeVersion: '22.14.0',
+  nodeVersion: '22.20.0',
   dshVersion: 'latest',
   host: '127.0.0.1',
   port: 3080,
