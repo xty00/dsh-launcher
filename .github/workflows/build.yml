@@ -37,10 +37,11 @@ jobs:
       - name: Build (electron-vite)
         run: npm run build
 
-      # 打包（注意：electron-builder.yml 里配了 publish，tag 构建会默认 onTagOrDraft 发布，
-      # 必须显式 --publish never，否则会与下方 Publish 步骤重复发布、产生重复 Release）
+      # 打包（--publish never：发布只由下方 Publish 步骤负责；
+      # 发布目标统一读 electron-builder.yml 的 publish 段，不再用 CLI --config.publish.*
+      # 覆盖——CLI 覆盖会与 yml 配置并存产生两个 publisher，并发抢建重复 Release）
       - name: Package NSIS installer
-        run: npx electron-builder --win --publish never --config.publish.owner=xty00 --config.publish.repo=dsh-launcher
+        run: npx electron-builder --win --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -54,6 +55,6 @@ jobs:
       # 仅 tag 触发时发布 GitHub Release（含 latest.yml，用户可自动更新）
       - name: Publish GitHub Release (tag only)
         if: startsWith(github.ref, 'refs/tags/v')
-        run: npx electron-builder --win --publish always --config.publish.owner=xty00 --config.publish.repo=dsh-launcher
+        run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
