@@ -58,3 +58,55 @@ jobs:
         run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 自愈：electron-builder 26.x 的 PublishManager 存在并发竞态
+      # （artifact 任务并发执行 getOrCreatePublisher 的 check-then-act，blockmap 与 exe
+      # 可能各建一个 GitHubPublisher，并发创建同 tag 的两个 Release，资产被拆分）。
+      # 此步骤把同 tag 的多余 Release 资产合并到含 latest.yml 的主 Release 并删除重复项，
+      # 保证自动更新链路（exe + blockmap + latest.yml）始终完整。
+      - name: Consolidate GitHub Release (self-healing)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OWNER=xty00
+          REPO=dsh-launcher
+          TAG="${GITHUB_REF_NAME}"
+          AUTH="Authorization: token ${GH_TOKEN}"
+          API="https://api.github.com/repos/${OWNER}/${REPO}"
+          UP="https://uploads.github.com/repos/${OWNER}/${REPO}"
+
+          RELEASES=$(curl -fsS -H "$AUTH" "${API}/releases?per_page=100")
+          COUNT=$(echo "$RELEASES" | jq --arg t "$TAG" '[.[] | select(.tag_name==$t)] | length')
+          echo "releases for ${TAG}: ${COUNT}"
+          [ "$COUNT" -le 1 ] && exit 0
+
+          # 主 Release：含 latest.yml（自动更新锚点）；兜底取资产最多的
+          CANON=$(echo "$RELEASES" | jq -r --arg t "$TAG" '.[] | select(.tag_name==$t) | select(any(.assets[]; .name=="latest.yml")) | .id' | head -1)
+          [ -z "$CANON" ] && CANON=$(echo "$RELEASES" | jq -r --arg t "$TAG" '[.[] | select(.tag_name==$t)] | max_by(.assets|length) | .id')
+          echo "canonical release: ${CANON}"
+
+          for DUP in $(echo "$RELEASES" | jq -r --arg t "$TAG" '.[] | select(.tag_name==$t) | .id'); do
+            [ "$DUP" = "$CANON" ] && continue
+            echo "--- merging release ${DUP} ---"
+            while IFS='|' read -r AID ANAME; do
+              if echo "$RELEASES" | jq -e --arg c "$CANON" --arg a "$ANAME" '.[] | select(.id==($c|tonumber)) | any(.assets[]; .name==$a)' >/dev/null; then
+                echo "skip (already on canonical): ${ANAME}"
+                continue
+              fi
+              echo "moving: ${ANAME}"
+              TMP="/tmp/${ANAME//[^A-Za-z0-9._-]/_}"
+              curl -fsSL -H "$AUTH" -H "Accept: application/octet-stream" "${API}/releases/assets/${AID}" -o "$TMP"
+              ENC=$(jq -nr --arg a "$ANAME" '$a | @uri')
+              curl -fsS -X POST -H "$AUTH" -H "Content-Type: application/octet-stream" \
+                --data-binary "@$TMP" "${UP}/releases/${CANON}/assets?name=${ENC}" >/dev/null
+              rm -f "$TMP"
+            done < <(echo "$RELEASES" | jq -r --arg id "$DUP" '.[] | select(.id==($id|tonumber)) | .assets[] | (.id|tostring) + "|" + .name')
+            curl -fsS -X DELETE -H "$AUTH" "${API}/releases/${DUP}" >/dev/null
+            echo "deleted duplicate release: ${DUP}"
+          done
+
+          echo "=== final releases for ${TAG} ==="
+          curl -fsS -H "$AUTH" "${API}/releases?per_page=100" | jq --arg t "$TAG" '.[] | select(.tag_name==$t) | {id, assets: [.assets[].name]}'
