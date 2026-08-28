@@ -25,6 +25,12 @@ export function loadSettings(file: string): Settings {
     /* 无配置或损坏，用默认值 */
   }
   const merged: Settings = { ...DEFAULT_SETTINGS, ...parsed }
+  // 旧版本数据迁移：DSH 0.1.1-rc.2 起使用 node:zlib 的 zstd API（需 Node ≥22.19.0），
+  // 0.3.0/0.3.1 默认安装的 22.14.0 会在启动 DSH web 时直接崩溃（createZstdDecompress 不存在），
+  // 此处把低于 22.19.0 的存量 nodeVersion 统一升到 22.20.0（仅启动时生效，不覆盖用户显式选择）
+  if (lt(merged.nodeVersion, '22.19.0')) {
+    merged.nodeVersion = '22.20.0'
+  }
   // 旧版本数据迁移：没有实例时，用顶层 host/port 生成默认实例
   if (!Array.isArray(merged.instances) || merged.instances.length === 0) {
     merged.instances = [{ id: 'default', name: '默认实例', host: merged.host, port: merged.port }]
@@ -38,6 +44,16 @@ export function loadSettings(file: string): Settings {
   merged.host = active.host
   merged.port = active.port
   return merged
+}
+
+/** 严格 semver 数值比较：a < b（a/b 形如 x.y.z；非法版本返回 false，交由既有校验处理） */
+function lt(a: string, b: string): boolean {
+  const pa = a.split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] !== pb[i]) return pa[i] < pb[i]
+  }
+  return false
 }
 
 /** 取活动实例；找不到时回退第一个并修正 activeInstanceId */
